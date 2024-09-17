@@ -14,6 +14,7 @@ LIB_DEPENDS+=	libzstd.so:archivers/zstd
 USES=	cargo ssl
 USE_GITHUB=	yes
 GH_TUPLE=	esp-rs:${PORTNAME}:v${DISTVERSION}
+PLIST_FILES=	bin/espup
 
 CARGO_CRATES=	addr2line-0.22.0 \
 		adler-1.0.2 \
