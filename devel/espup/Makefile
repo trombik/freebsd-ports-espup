@@ -10,6 +10,7 @@ LICENSE=	MIT
 LICENSE_FILE=	${WRKSRC}/LICENSE-MIT
 
 WWW=	https://github.com/esp-rs/espup
+LIB_DEPENDS+=	libzstd.so:archivers/zstd
 USES=	cargo ssl
 USE_GITHUB=	yes
 GH_TUPLE=	esp-rs:${PORTNAME}:v${DISTVERSION}
