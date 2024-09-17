@@ -10,7 +10,7 @@ LICENSE=	MIT
 LICENSE_FILE=	${WRKSRC}/LICENSE-MIT
 
 WWW=	https://github.com/esp-rs/espup
-USES=	cargo
+USES=	cargo ssl
 USE_GITHUB=	yes
 GH_TUPLE=	esp-rs:${PORTNAME}:v${DISTVERSION}
 
@@ -144,7 +144,6 @@ CARGO_CRATES=	addr2line-0.22.0 \
 		openssl-0.10.64 \
 		openssl-macros-0.1.1 \
 		openssl-probe-0.1.5 \
-		openssl-src-300.3.1+3.3.1 \
 		openssl-sys-0.9.102 \
 		option-ext-0.2.0 \
 		owo-colors-4.0.0 \
