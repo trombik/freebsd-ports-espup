@@ -91,7 +91,7 @@ ESPRUST_CONFIGURE_ARGS+=	--set=build.verbose=2 \
 # see https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=277204
 .if "${WITH_CCACHE_BUILD:tl}" == "yes" && !defined(NO_CCACHE)
 ESPRUST_CONFIGURE_ARGS+=	--enable-ccache \
-	--set=llvm.ccache=${CCACHE_BIN} \
+	--set=llvm.ccache=${CCACHE_BIN}
 .else
 ESPRUST_CONFIGURE_ARGS+= --set=llvm.ccache=false
 .endif
