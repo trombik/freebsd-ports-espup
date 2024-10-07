@@ -21,6 +21,7 @@ LIB_DEPENDS=	libonig.so:devel/oniguruma \
 USES+=	python:3.0+ cargo ninja ssl
 USE_GITHUB=	yes
 GH_TUPLE=	esp-rs:rust:02368e9
+WITHOUT_LTO=	yes
 
 # to update GH_TUPLE for submodules, run:
 # make patch && make makesubmodule
@@ -79,12 +80,20 @@ ESPRUST_CONFIGURE_SCRIPT=	${WRKSRC}/src/bootstrap/configure.py
 # the original configure arguments
 ESPRUST_CONFIGURE_ARGS=	--experimental-targets=Xtensa --release-channel=nightly --release-description="${ESPRUST_VERSION}" --enable-extended --enable-cargo-native-static --tools=clippy,cargo,rustfmt,rust-analyzer-proc-macro-srv --dist-compression-formats='xz' --enable-lld
 # our own configure arguments
-ESPRUST_CONFIGURE_ARGS+=	--set=build.verbose=2
+ESPRUST_CONFIGURE_ARGS+=	--set=build.verbose=2 \
+	--set=build.python=${PYTHON_CMD} \
+	--set=install.prefix=${PREFIX}/${PORTNAME} \
+	--set=install.sysconfdir=${PREFIX}/${PORTNAME}/etc \
+	--set=llvm.ninja=true \
+	--set=dist.src-tarball=false
 
 # XXX you cannot use CCACHE_ENABLED here.
 # see https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=277204
 .if "${WITH_CCACHE_BUILD:tl}" == "yes" && !defined(NO_CCACHE)
-ESPRUST_CONFIGURE_ARGS+=	--enable-ccache
+ESPRUST_CONFIGURE_ARGS+=	--enable-ccache \
+	--set=llvm.ccache=${CCACHE_BIN} \
+.else
+ESPRUST_CONFIGURE_ARGS+= --set=llvm.ccache=false
 .endif
 
 ESPRUST_BUILD_CMD=	${PYTHON_CMD} x.py
