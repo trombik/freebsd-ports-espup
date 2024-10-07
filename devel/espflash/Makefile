@@ -12,9 +12,11 @@ LICENSE_COMB=	dual
 WWW=	https://github.com/esp-rs/espflash
 
 BUILD_DEPENDS=	rust-nightly>0:lang/rust-nightly
-LIB_DEPENDS=	libcurl.so:ftp/curl
+LIB_DEPENDS=	libcurl.so:ftp/curl \
+	libssh2.so:security/libssh2 \
+	libgit2.so:devel/libgit2
 
-USES=	cargo
+USES=	cargo ssl
 USE_GITHUB=	yes
 GH_TUPLE=	esp-rs:${PORTNAME}:${DISTVERSIONPREFIX}${DISTVERSION}
 
