@@ -1,24 +1,24 @@
 PORTNAME=	espflash
-DISTVERSION=	3.1.1
+PORTVERSION=	3.1.1
 DISTVERSIONPREFIX=	v
 CATEGORIES=	devel
 MASTER_SITES=
 
 MAINTAINER=	y@trombik.org
-COMMENT=	Serial flasher utility for Espressif SoCs and modules based on esptool.py
+COMMENT=	Serial flasher utility for Espressif SoCs
 
 LICENSE=	MIT APACHE20
 LICENSE_COMB=	dual
+
+BUILD_DEPENDS=	rust-nightly>0:lang/rust-nightly \
+	libssh2>0:security/libssh2 \
+	libgit2>0:devel/libgit2
+LIB_DEPENDS=	libcurl.so:ftp/curl
+
 WWW=	https://github.com/esp-rs/espflash
-
-BUILD_DEPENDS=	rust-nightly>0:lang/rust-nightly
-LIB_DEPENDS=	libcurl.so:ftp/curl \
-	libssh2.so:security/libssh2 \
-	libgit2.so:devel/libgit2
-
 USES=	cargo ssl
 USE_GITHUB=	yes
-GH_TUPLE=	esp-rs:${PORTNAME}:${DISTVERSIONPREFIX}${DISTVERSION}
+GH_TUPLE=	esp-rs:${PORTNAME}:${DISTVERSIONPREFIX}${PORTVERSION}
 
 # XXX disable CARGO_BUILDDEP because cargo.mk add lang/rust, not
 # lang/rust-nightly, to BUILD_DEPENDS,
