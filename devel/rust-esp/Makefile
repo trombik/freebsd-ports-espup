@@ -164,6 +164,11 @@ do-build:
 	(cd ${WRKSRC} && ${SETENVI} ${WRK_ENV} ${MAKE_ENV} ${CARGO_ENV} ${ESPRUST_BUILD_CMD} ${ESPRUST_BUILD_ARGS})
 
 do-install:
+	# XXX remove unnecessary directories to save disk space.
+	# on GitHub runners, the workflow to build stops due to lack of enough
+	# space on the disk.
+	${RM} -r ${WRKSRC}/build/tmp ${WRKSRC}/build/tmp ${WRKSRC}/build/${ESPRUST_TUPLE}
+
 	${RM} -r ${ESPRUST_EXTRACT_DIR}
 .for C in ${ESPRUST_COMPONENTS}
 	${MKDIR} ${ESPRUST_EXTRACT_DIR}
