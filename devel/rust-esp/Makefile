@@ -28,7 +28,32 @@ WITHOUT_LTO=	yes
 MAKEFILE_SUBMODULES=	${.CURDIR}/Makefile.submodule
 .include "${MAKEFILE_SUBMODULES}"
 
-_COMPONENTS=
+ESPRUST_MACHINE=	${ARCH:S/amd64/x86_64/}
+ESPRUST_TUPLE=	${ESPRUST_MACHINE}-unknown-freebsd
+ESPRUST_COMPONENTS_VERSION=	nightly
+
+# components to extract and install
+ESPRUST_COMPONENTS=	\
+	cargo-${ESPRUST_COMPONENTS_VERSION}-${ESPRUST_TUPLE} \
+	clippy-${ESPRUST_COMPONENTS_VERSION}-${ESPRUST_TUPLE} \
+	rust-dev-${ESPRUST_COMPONENTS_VERSION}-${ESPRUST_TUPLE} \
+	rust-docs-json-${ESPRUST_COMPONENTS_VERSION}-${ESPRUST_TUPLE} \
+	rust-docs-${ESPRUST_COMPONENTS_VERSION}-${ESPRUST_TUPLE} \
+	rust-${ESPRUST_COMPONENTS_VERSION}-${ESPRUST_TUPLE} \
+	rust-src-${ESPRUST_COMPONENTS_VERSION} \
+	rust-std-${ESPRUST_COMPONENTS_VERSION}-${ESPRUST_TUPLE} \
+	rustc-dev-${ESPRUST_COMPONENTS_VERSION}-${ESPRUST_TUPLE} \
+	rustc-${ESPRUST_COMPONENTS_VERSION}-${ESPRUST_TUPLE} \
+	rustfmt-${ESPRUST_COMPONENTS_VERSION}-${ESPRUST_TUPLE}
+
+# where tarballs are kept
+ESPRUST_DIST_DIR=	${WRKSRC}/build/dist
+
+# where to extract components
+ESPRUST_EXTRACT_DIR=	${WRKDIR}/_extractdist
+
+# where to install components without ${PREFIX}
+ESPRUST_ROOT_DIR=	${PORTNAME}
 
 # to update the list of crates, run:
 # sh files/update_crates.sh
@@ -67,9 +92,9 @@ ESPRUST_STAGE_PACKAGES=	cargo \
 						rust-std \
 						rustc
 .for F in ${ESPRUST_STAGE_PACKAGES}
-ESPRUST_STAGE_FILES+=	${F}-${ESPRUST_COMPILER_VERSION}-x86_64-unknown-freebsd.tar.xz
+ESPRUST_STAGE_FILES+=	${F}-${ESPRUST_COMPILER_VERSION}-${ESPRUST_TUPLE}.tar.xz
 MASTER_SITES+=	${ESPRUST_MASTER_SITE}/dist/${ESPRUST_RELEASE_DATE}/:src_${F:S/-/_/}
-DISTFILES+=	${F}-${ESPRUST_COMPILER_VERSION}-${ARCH:S/amd64/x86_64/}-unknown-freebsd.tar.xz:src_${F:S/-/_/}
+DISTFILES+=	${F}-${ESPRUST_COMPILER_VERSION}-${ESPRUST_TUPLE}.tar.xz:src_${F:S/-/_/}
 .endfor
 
 # see support/rust-build/x86_64-unknown-linux-gnu/build.sh in
@@ -82,10 +107,11 @@ ESPRUST_CONFIGURE_ARGS=	--experimental-targets=Xtensa --release-channel=nightly 
 # our own configure arguments
 ESPRUST_CONFIGURE_ARGS+=	--set=build.verbose=2 \
 	--set=build.python=${PYTHON_CMD} \
-	--set=install.prefix=${PREFIX}/${PORTNAME} \
-	--set=install.sysconfdir=${PREFIX}/${PORTNAME}/etc \
+	--set=install.prefix=${PREFIX}/${ESPRUST_ROOT_DIR} \
+	--set=install.sysconfdir=${PREFIX}/${ESPRUST_ROOT_DIR}/etc \
 	--set=llvm.ninja=true \
-	--set=dist.src-tarball=false
+	--set=dist.src-tarball=false \
+	--set=rust.deny-warnings=false
 
 # XXX you cannot use CCACHE_ENABLED here.
 # see https://bugs.freebsd.org/bugzilla/show_bug.cgi?id=277204
@@ -125,16 +151,16 @@ do-build:
 	(cd ${WRKSRC} && ${SETENVI} ${WRK_ENV} ${MAKE_ENV} ${CARGO_ENV} ${ESPRUST_BUILD_CMD} ${ESPRUST_BUILD_ARGS})
 
 do-install:
-	${RM} -r ${WRKDIR}/_extractdist
-.for _c in ${_COMPONENTS}
-	${MKDIR} ${WRKDIR}/_extractdist
-	${TAR} xf ${WRKDIR}/_build/dist/${_c}.tar.xz -C ${WRKDIR}/_extractdist
-	cd ${WRKDIR}/_extractdist/${_c} && \
+	${RM} -r ${ESPRUST_EXTRACT_DIR}
+.for C in ${ESPRUST_COMPONENTS}
+	${MKDIR} ${ESPRUST_EXTRACT_DIR}
+	${TAR} xf  ${ESPRUST_DIST_DIR}/${C}.tar.xz -C ${ESPRUST_EXTRACT_DIR}
+	cd ${ESPRUST_EXTRACT_DIR}/${C} && \
 		${SH} install.sh \
 		--docdir="${STAGEDIR}${DOCSDIR}" \
 		--mandir="${STAGEDIR}${PREFIX}/share/man" \
-		--prefix="${STAGEDIR}${PREFIX}"
-	${RM} -r ${WRKDIR}/_extractdist
+		--prefix="${STAGEDIR}${PREFIX}/${ESPRUST_ROOT_DIR}"
+	${RM} -r ${ESPRUST_EXTRACT_DIR}
 .endfor
 
 # We autogenerate the plist file.  We do that, instead of the
@@ -142,16 +168,25 @@ do-install:
 # filename based on the absolute path of the source files.  As it
 # is user-specific, we cannot know their filename in advance.
 	@${RM}	${STAGEDIR}${DOCSDIR}/*.old \
-		${STAGEDIR}${PREFIX}/lib/rustlib/components \
-		${STAGEDIR}${PREFIX}/lib/rustlib/install.log \
-		${STAGEDIR}${PREFIX}/lib/rustlib/manifest-* \
-		${STAGEDIR}${PREFIX}/lib/rustlib/rust-installer-version \
-		${STAGEDIR}${PREFIX}/lib/rustlib/uninstall.sh
-	@${FIND} ${STAGEDIR}${PREFIX}/bin ${STAGEDIR}${PREFIX}/lib \
-		${STAGEDIR}${PREFIX}/libexec -exec ${FILE} -i {} + | \
+		${STAGEDIR}${PREFIX}/${ESPRUST_ROOT_DIR}/lib/rustlib/components \
+		${STAGEDIR}${PREFIX}/${ESPRUST_ROOT_DIR}/lib/rustlib/install.log \
+		${STAGEDIR}${PREFIX}/${ESPRUST_ROOT_DIR}/lib/rustlib/manifest-* \
+		${STAGEDIR}${PREFIX}/${ESPRUST_ROOT_DIR}/lib/rustlib/rust-installer-version \
+		${STAGEDIR}${PREFIX}/${ESPRUST_ROOT_DIR}/lib/rustlib/uninstall.sh
+	@${FIND} ${STAGEDIR}${PREFIX}/${ESPRUST_ROOT_DIR}/bin ${STAGEDIR}${PREFIX}/${ESPRUST_ROOT_DIR}/lib \
+		${STAGEDIR}${PREFIX}/${ESPRUST_ROOT_DIR}/libexec -exec ${FILE} -i {} + | \
 		${AWK} -F: '/executable|sharedlib/ { print $$1 }' | ${XARGS} ${STRIP_CMD}
 	@${FIND} ${STAGEDIR}${PREFIX} -not -type d | \
 		${SED} -E -e 's,^${STAGEDIR}${PREFIX}/,,' \
 			-e 's,(share/man/man[1-9]/.*\.[0-9]),\1.gz,' >> ${TMPPLIST}
+
+# Ignore any left behind empty directories in case some docs fail
+# to build (failures are ignored due to deny-warnings=false).
+	@${FIND} ${STAGEDIR}${DOCSDIR}/html -empty -type d | \
+		${SED} 's,^${STAGEDIR},@comment @dir ,' >> ${TMPPLIST}
+
+# Silence stage-qa warnings by sanitizing permissions on sources
+	@${FIND} ${STAGEDIR}${PREFIX}/${ESPRUST_ROOT_DIR}/lib/rustlib/src -type f -exec ${CHMOD} \
+		${SHAREMODE} {} +
 
 .include <bsd.port.mk>
