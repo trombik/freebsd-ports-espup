@@ -191,6 +191,7 @@ do-install:
 	@${FIND} ${STAGEDIR}${PREFIX} -not -type d | \
 		${SED} -E -e 's,^${STAGEDIR}${PREFIX}/,,' \
 			-e 's,(share/man/man[1-9]/.*\.[0-9]),\1.gz,' >> ${TMPPLIST}
+	@${FIND} ${STAGEDIR}${PREFIX}/${ESPRUST_ROOT_DIR}/share/man -type f -exec ${GZIP_CMD} {} +
 
 # Ignore any left behind empty directories in case some docs fail
 # to build (failures are ignored due to deny-warnings=false).
