@@ -170,7 +170,7 @@ do-install:
 	cd ${ESPRUST_EXTRACT_DIR}/${C} && \
 		${SH} install.sh \
 		--docdir="${STAGEDIR}${DOCSDIR}" \
-		--mandir="${STAGEDIR}${PREFIX}/share/man" \
+		--mandir="${STAGEDIR}${PREFIX}/${ESPRUST_ROOT_DIR}/share/man" \
 		--prefix="${STAGEDIR}${PREFIX}/${ESPRUST_ROOT_DIR}"
 	${RM} -r ${ESPRUST_EXTRACT_DIR}
 .endfor
