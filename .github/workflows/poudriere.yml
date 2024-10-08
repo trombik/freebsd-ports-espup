@@ -1,0 +1,139 @@
+---
+name: Build all ports in the repository
+on:
+  - push
+env:
+   BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Maximize build space
+        uses: AdityaGarg8/remove-unwanted-software@8831c82abf29b34eb2caac48d5f999ecfc0d8eef
+        with:
+          remove-android: 'true'
+          remove-dotnet: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
+          remove-large-packages: 'true'
+          remove-cached-tools: 'true'
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: poudriere bulk
+        id: make
+        uses: vmactions/freebsd-vm@4ffe24bba954dc44adef7f6706acd35424cbe4a1
+        with:
+          usesh: true
+          prepare: |
+
+            TMPFS_BLACKLIST="rust rust-*"
+            ALLOW_MAKE_JOBS_PACKAGES="rust-esp"
+
+            # create poudriere.conf
+            DISTFILES_CACHE=/usr/ports/distfiles
+            CONFIG_FILE=/usr/local/etc/poudriere.conf
+            rm -f ${CONFIG_FILE}
+            echo NO_ZFS=yes >> ${CONFIG_FILE}
+            echo FREEBSD_HOST=https://download.FreeBSD.org >> ${CONFIG_FILE}
+            echo RESOLV_CONF=/etc/resolv.conf >> ${CONFIG_FILE}
+            echo BASEFS=/usr/local/poudriere >> ${CONFIG_FILE}
+            echo USE_PORTLINT=no >> ${CONFIG_FILE}
+            echo USE_TMPFS=yes >> ${CONFIG_FILE}
+            echo TMPFS_BLACKLIST=\"${TMPFS_BLACKLIST}\" >> ${CONFIG_FILE}
+            echo TMPFS_BLACKLIST_TMPDIR=\${BASEFS}/data/cache/tmp >> ${CONFIG_FILE}
+            echo DISTFILES_CACHE=${DISTFILES_CACHE} >> ${CONFIG_FILE}
+            echo CCACHE_DIR=/var/cache/ccache >> ${CONFIG_FILE}
+            echo PACKAGE_FETCH_BRANCH=latest >> ${CONFIG_FILE}
+            echo PACKAGE_FETCH_URL=pkg+http://pkg.FreeBSD.org/\\\${ABI} >> ${CONFIG_FILE}
+            echo ALLOW_MAKE_JOBS_PACKAGES=\"${ALLOW_MAKE_JOBS_PACKAGES}\" >> ${CONFIG_FILE}
+            cat "${CONFIG_FILE}"
+
+            # install poudriere-devel
+            export ASSUME_ALWAYS_YES=yes
+            pkg install git tree poudriere-devel
+
+            # create the ports tree
+            PORTS_URL="https://github.com/freebsd/freebsd-ports.git"
+            poudriere ports -c -p default -B main -U "${PORTS_URL}"
+            poudriere ports -l
+
+            # create a symlink to the ports tree
+            ln -s /usr/local/poudriere/ports/default /usr/ports
+
+            # create a jail
+            JAIL_NAME_VERSION=`uname -r | sed -E -e 's/-(CURRENT|RELEASE).*//' -e 's/\.//'`
+            JAIL_NAME_ARCH=`uname -m`
+            JAIL_NAME="${JAIL_NAME_VERSION}${JAIL_NAME_ARCH}"
+            JAIL_VERSION=`uname -r | sed -E -e 's/-p[0-9]+$//'`
+            poudriere jail -c -j "${JAIL_NAME}" -v "${JAIL_VERSION}"
+            poudriere jail -l
+
+            # create required directories
+            mkdir -p "${DISTFILES_CACHE}"
+
+          run: |
+            set -x
+            set -e
+
+            JAIL_NAME_VERSION=`uname -r | sed -E -e 's/-(CURRENT|RELEASE).*//' -e 's/\.//'`
+            JAIL_NAME_ARCH=`uname -m`
+            JAIL_NAME="${JAIL_NAME_VERSION}${JAIL_NAME_ARCH}"
+            PORTS_NAME="default"
+            OVERLAY_DIR=`realpath .`
+            PORTS_TO_BUILD=`echo */*`
+
+            # avoid "fatal: detected dubious ownership in repository at ..."
+            chown -R root:wheel "${OVERLAY_DIR}"
+
+            # create an overlay
+            poudriere ports -c -p overlay -B "${{ env.BRANCH_NAME }}" -m git+file -U "${OVERLAY_DIR}"
+            poudriere ports -l
+
+            # build the ports with the overlay
+            poudriere bulk -j "${JAIL_NAME}" -O overlay -Ct ${PORTS_TO_BUILD} || true
+
+            rm -f package_list.txt
+            for P in ${PORTS_TO_BUILD}; do
+              PKGNAME=`make -C ${P} -V PKGNAME`
+              echo "${PKGNAME}" >> package_list.txt
+            done
+
+            # collect the logs
+            cp -R "/usr/local/poudriere/data/logs/bulk/${JAIL_NAME}-${PORTS_NAME}/latest/logs" ${OVERLAY_DIR}/logs
+
+      - name: upload logs
+        id: logs-upload-step
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs
+          path: logs/
+
+      - name: Fail if any build failed
+        shell: sh
+        run: |
+          ERROR_LOG_FILES=`find logs/errors -type f -name '*.log'`
+          echo "ERROR_LOG_FILES: ${ERROR_LOG_FILES}"
+          FAILED_PACKAGES=""
+          for F in ${ERROR_LOG_FILES}; do
+            FAILED_PACKAGE=`basename "${F}" | sed -e 's/\.log//'`
+            FAILED_PACKAGES="${FAILED_PACKAGES} ${FAILED_PACKAGE}"
+          done
+          echo -n "${FAILED_PACKAGE}" > failed_packages.txt
+          echo "===> Failed package"
+          cat failed_packages.txt
+
+          N_FAILED_PACKAGES=`cat failed_packages.txt | wc -l | sed -E -e 's/^[[:space:]]+//' -e 's/[[:space:]].*//'`
+          echo "===> Number of failed packages"
+          echo "${N_FAILED_PACKAGES}"
+
+          echo "Logs are available in an artifact. ID: ${{ steps.logs-upload-step.outputs.artifact-id }}"
+
+          EXIT_STATUS=0
+          if [ "${N_FAILED_PACKAGES}" -gt 0 ]; then
+            EXIT_STATUS=1
+          fi
+          exit "${EXIT_STATUS}"
