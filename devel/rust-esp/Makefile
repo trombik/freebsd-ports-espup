@@ -28,8 +28,9 @@ WITHOUT_LTO=	yes
 MAKEFILE_SUBMODULES=	${.CURDIR}/Makefile.submodule
 .include "${MAKEFILE_SUBMODULES}"
 
-ESPRUST_MACHINE=	${ARCH:S/amd64/x86_64/}
-ESPRUST_TUPLE=	${ESPRUST_MACHINE}-unknown-freebsd
+ONLY_FOR_ARCHS=	amd64
+ESPRUST_ARCH=	x86_64
+ESPRUST_TUPLE=	${ESPRUST_ARCH}-unknown-freebsd
 ESPRUST_COMPONENTS_VERSION=	nightly
 
 # the component rustup needs
